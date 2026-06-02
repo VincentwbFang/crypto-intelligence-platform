@@ -1,0 +1,25 @@
+{
+  "title": "Crypto Intelligence API Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m])) by (route, status_code)"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP Duration",
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])"
+        }
+      ]
+    }
+  ]
+}

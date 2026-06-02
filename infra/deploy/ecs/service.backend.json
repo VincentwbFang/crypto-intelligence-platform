@@ -1,0 +1,22 @@
+{
+  "serviceName": "crypto-intelligence-backend",
+  "cluster": "<ecs-cluster-name>",
+  "taskDefinition": "crypto-intelligence-backend",
+  "desiredCount": 2,
+  "launchType": "FARGATE",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["<private-subnet-a>", "<private-subnet-b>"],
+      "securityGroups": ["<backend-security-group>"],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "<backend-target-group-arn>",
+      "containerName": "backend",
+      "containerPort": 8000
+    }
+  ]
+}
+

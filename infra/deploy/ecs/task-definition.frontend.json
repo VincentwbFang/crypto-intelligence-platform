@@ -1,0 +1,37 @@
+{
+  "family": "crypto-intelligence-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/<ecs-execution-role>",
+  "containerDefinitions": [
+    {
+      "name": "frontend",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/crypto-intelligence-frontend:<tag>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "BACKEND_INTERNAL_URL", "value": "http://<backend-service-discovery-name>:8000" },
+        { "name": "NEXT_PUBLIC_API_BASE_URL", "value": "/api/backend" },
+        { "name": "NEXT_PUBLIC_DEPLOYMENT_ENV", "value": "production" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/crypto-intelligence-frontend",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+

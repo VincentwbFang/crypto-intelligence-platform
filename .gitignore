@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Environment
+.env
+*.env
+!.env.example
+
+# Docker and local state
+*.log
+.DS_Store
+docker-compose.override.yml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+coverage/
+npm-debug.log*

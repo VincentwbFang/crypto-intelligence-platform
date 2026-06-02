@@ -1,0 +1,43 @@
+{
+  "family": "crypto-intelligence-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/<ecs-execution-role>",
+  "taskRoleArn": "arn:aws:iam::<account-id>:role/<ecs-task-role>",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/crypto-intelligence-backend:<tag>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "DEPLOYMENT_ENV", "value": "production" },
+        { "name": "SERVICE_NAME", "value": "crypto-intelligence-platform" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "<ssm-or-secrets-manager-database-url>" },
+        { "name": "REDIS_URL", "valueFrom": "<ssm-or-secrets-manager-redis-url>" },
+        { "name": "JWT_SECRET_KEY", "valueFrom": "<ssm-or-secrets-manager-jwt-secret>" },
+        { "name": "DEEPSEEK_API_KEY", "valueFrom": "<optional-deepseek-secret>" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/system/live', timeout=3).read()\""],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/crypto-intelligence-backend",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+
