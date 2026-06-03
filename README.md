@@ -105,6 +105,7 @@ ENABLE_RELATIVE_STRENGTH_SCHEDULER=true
 RELATIVE_STRENGTH_INTERVAL_SECONDS=900
 ENABLE_AI_RELATIVE_STRENGTH_ALERT_EXPLANATION=false
 ENABLE_NEWS_SCHEDULER=true
+NEWS_RUN_ON_STARTUP=true
 NEWS_FETCH_INTERVAL_MINUTES=10
 NEWS_ANALYZE_INTERVAL_MINUTES=10
 NEWS_BRIEFING_INTERVAL_MINUTES=30
@@ -650,6 +651,7 @@ Scheduler jobs:
 - Generate intraday briefing every 30 minutes.
 - Generate morning briefing daily at `NEWS_MORNING_BRIEFING_TIME`.
 - Check critical breaking news every 5 minutes.
+- Run a bounded news refresh pipeline on backend startup when `NEWS_RUN_ON_STARTUP=true`.
 
 Cost controls:
 
@@ -662,7 +664,11 @@ Cost controls:
 
 The Dashboard shows the News Broadcast panel with latest news, Chinese
 briefings, symbol filters, and major-news warnings. News analysis is
-research-only and does not provide trading instructions.
+research-only and does not provide trading instructions. The panel refreshes in
+place every `NEXT_PUBLIC_NEWS_POLL_INTERVAL_MS` milliseconds, keeps the latest
+successful data visible if a refresh fails, scrolls the news list inside the
+page, and uses an animated ticker for high/critical items so you do not need to
+manually refresh the browser.
 
 ## Deterministic Signals
 

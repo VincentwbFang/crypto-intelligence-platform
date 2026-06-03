@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
@@ -16,6 +16,7 @@ import type { NewsAlert, NewsBroadcast, NewsItem } from "@/lib/api/types";
 import { formatDateTime } from "@/lib/format";
 
 const urgencyFilters = ["all", "critical", "high", "medium", "low"];
+const DEFAULT_NEWS_POLL_INTERVAL_MS = 30000;
 
 export function NewsBroadcastPanel() {
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -24,19 +25,27 @@ export function NewsBroadcastPanel() {
   const [symbol, setSymbol] = useState("ALL");
   const [urgency, setUrgency] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollIntervalMs = getNewsPollIntervalMs();
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([
-      getLatestNews({ limit: 30 }),
-      getNewsAlerts(10),
-      getNewsBriefing("morning"),
-      getNewsBriefing("intraday"),
-      getNewsBriefing("breaking")
-    ])
-      .then(([latest, alertResponse, morning, intraday, breaking]) => {
-        if (!active) {
+  const loadNews = useCallback(
+    async (isInitialLoad = false, isMounted: () => boolean = () => true) => {
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      try {
+        const [latest, alertResponse, morning, intraday, breaking] = await Promise.all([
+          getLatestNews({ limit: 30 }),
+          getNewsAlerts(10),
+          getNewsBriefing("morning"),
+          getNewsBriefing("intraday"),
+          getNewsBriefing("breaking")
+        ]);
+        if (!isMounted()) {
           return;
         }
         setNews(latest.data);
@@ -46,21 +55,34 @@ export function NewsBroadcastPanel() {
           intraday: intraday.data,
           breaking: breaking.data
         });
-      })
-      .catch((err: Error) => {
-        if (active) {
-          setError(err.message);
+        setLastUpdatedAt(new Date());
+        setError(null);
+      } catch (err) {
+        if (isMounted()) {
+          setError(err instanceof Error ? err.message : "News refresh failed.");
         }
-      })
-      .finally(() => {
-        if (active) {
+      } finally {
+        if (isMounted()) {
           setLoading(false);
+          setRefreshing(false);
         }
-      });
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    let active = true;
+    const isMounted = () => active;
+    void loadNews(true, isMounted);
+    const interval = window.setInterval(() => {
+      void loadNews(false, isMounted);
+    }, pollIntervalMs);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
-  }, []);
+  }, [loadNews, pollIntervalMs]);
 
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
@@ -79,10 +101,10 @@ export function NewsBroadcastPanel() {
     });
   }, [news, symbol, urgency]);
 
-  if (loading) {
+  if (loading && !news.length) {
     return <LoadingState label="Loading news broadcast" />;
   }
-  if (error) {
+  if (error && !news.length) {
     return <ErrorState title="News unavailable" message={error} />;
   }
 
@@ -92,8 +114,23 @@ export function NewsBroadcastPanel() {
       <NewsTicker items={news} />
       <SectionCard
         title="News Broadcast"
-        description="AI-assisted Chinese news briefings and rule-based crypto news impact analysis."
+        description="Live-updating Chinese briefings and rule-based crypto news impact analysis."
       >
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            <span className="mr-2 inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            实时新闻流 · 每 {Math.round(pollIntervalMs / 1000)} 秒自动更新
+          </span>
+          <span>
+            {refreshing ? "正在更新..." : "最后更新 "}
+            {!refreshing && lastUpdatedAt ? formatDateTime(lastUpdatedAt.toISOString()) : null}
+          </span>
+        </div>
+        {error ? (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            最新一轮更新失败：{error}。页面继续展示最近一次成功获取的新闻。
+          </div>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
           <BriefingCard label="今日早报" briefing={briefings.morning} />
           <BriefingCard label="盘中快报" briefing={briefings.intraday} />
@@ -122,7 +159,7 @@ export function NewsBroadcastPanel() {
           </div>
         </div>
         {filteredNews.length ? (
-          <div className="space-y-3">
+          <div className="max-h-[680px] space-y-3 overflow-y-auto pr-2">
             {filteredNews.map((item) => (
               <NewsCard item={item} key={item.id} />
             ))}
@@ -137,6 +174,15 @@ export function NewsBroadcastPanel() {
       </p>
     </div>
   );
+}
+
+function getNewsPollIntervalMs() {
+  const rawValue = process.env.NEXT_PUBLIC_NEWS_POLL_INTERVAL_MS;
+  const parsed = rawValue ? Number.parseInt(rawValue, 10) : DEFAULT_NEWS_POLL_INTERVAL_MS;
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_NEWS_POLL_INTERVAL_MS;
+  }
+  return Math.max(5000, parsed);
 }
 
 function BriefingCard({

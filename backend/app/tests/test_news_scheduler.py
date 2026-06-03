@@ -4,6 +4,7 @@ from app.tasks.news_tasks import NewsScheduler
 
 def test_news_scheduler_initializes_jobs(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ENABLE_NEWS_SCHEDULER", True)
+    monkeypatch.setattr(settings, "NEWS_RUN_ON_STARTUP", False)
     scheduler = NewsScheduler(settings)
     scheduler.start()
     try:

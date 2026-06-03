@@ -30,3 +30,22 @@ body {
 a {
   text-decoration: none;
 }
+
+@keyframes news-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .news-ticker-track {
+    animation: news-ticker-scroll 45s linear infinite;
+  }
+
+  .news-ticker-track:hover {
+    animation-play-state: paused;
+  }
+}

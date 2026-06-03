@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -80,6 +81,19 @@ def check_breaking_news_alerts() -> dict[str, Any]:
         db.close()
 
 
+def run_news_pipeline_once() -> dict[str, Any]:
+    """Run a bounded news refresh pipeline for startup and manual smoke checks."""
+    logger.info("Running startup news pipeline")
+    fetch_result = fetch_crypto_news()
+    analyze_result = analyze_unprocessed_news()
+    breaking_result = check_breaking_news_alerts()
+    return {
+        "fetch": fetch_result,
+        "analyze": analyze_result,
+        "breaking": breaking_result,
+    }
+
+
 class NewsScheduler:
     def __init__(self, settings_obj=settings) -> None:
         self.settings = settings_obj
@@ -104,6 +118,19 @@ class NewsScheduler:
             self.settings.NEWS_BRIEFING_INTERVAL_MINUTES,
         )
         self._add_interval_job(check_breaking_news_alerts, "check_breaking_news_alerts", 5)
+        if (
+            self.settings.NEWS_RUN_ON_STARTUP
+            and self.scheduler.get_job("run_news_pipeline_once") is None
+        ):
+            self.scheduler.add_job(
+                run_news_pipeline_once,
+                "date",
+                run_date=datetime.now(self.scheduler.timezone),
+                id="run_news_pipeline_once",
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+            )
         hour, minute = _parse_hhmm(self.settings.NEWS_MORNING_BRIEFING_TIME)
         if self.scheduler.get_job("generate_morning_briefing") is None:
             self.scheduler.add_job(
