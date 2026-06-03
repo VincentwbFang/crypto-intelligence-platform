@@ -71,10 +71,15 @@ SIGNAL_MIN_CANDLES=60
 SIGNAL_DEFAULT_LIMIT=200
 SIGNAL_REFERENCE_SYMBOL=BTC/USDT
 ENABLE_AI_SIGNAL_EXPLANATION=false
+MARKET_TOP_N=30
+MARKET_BACKFILL_YEARS=3
+MARKET_BACKFILL_TIMEFRAME=1h
+MARKET_BACKFILL_BATCH_LIMIT=300
+MARKET_BACKFILL_QUOTE=USDT
 ENABLE_ALERT_ENGINE=true
 ENABLE_ALERT_SCHEDULER=false
 ALERT_EVALUATION_INTERVAL_SECONDS=300
-ALERT_DEFAULT_SYMBOLS=BTC/USDT,ETH/USDT,SOL/USDT
+ALERT_DEFAULT_SYMBOLS=BTC/USDT,ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,TRX/USDT,TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,HBAR/USDT,LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,ETC/USDT,ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,HYPE/USDT,PEPE/USDT
 ALERT_DEFAULT_TIMEFRAME=1h
 ALERT_SIGNAL_SCORE_THRESHOLD=70
 ALERT_HIGH_RISK_THRESHOLD=75
@@ -84,7 +89,7 @@ ENABLE_WEBHOOK_NOTIFICATIONS=false
 ALERT_WEBHOOK_URL=
 ENABLE_EMAIL_NOTIFICATIONS=false
 RELATIVE_STRENGTH_BASE_SYMBOL=BTC/USDT
-RELATIVE_STRENGTH_SYMBOLS=ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,AVAX/USDT,LINK/USDT,TON/USDT,DOT/USDT,TRX/USDT,LTC/USDT,BCH/USDT,UNI/USDT,APT/USDT,ARB/USDT,OP/USDT,SUI/USDT,NEAR/USDT,ATOM/USDT,FIL/USDT,INJ/USDT,SEI/USDT,HYPE/USDT
+RELATIVE_STRENGTH_SYMBOLS=ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,TRX/USDT,TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,HBAR/USDT,LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,ETC/USDT,ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,HYPE/USDT,PEPE/USDT
 RELATIVE_STRENGTH_TIMEFRAME=1h
 RELATIVE_STRENGTH_LOOKBACK_LIMIT=750
 ENABLE_RELATIVE_STRENGTH_SCHEDULER=true
@@ -510,6 +515,7 @@ curl -H "Authorization: Bearer ACCESS_TOKEN" http://localhost:8000/usage/limits
 
 ```bash
 curl -X POST http://localhost:8000/market/ingest \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"exchange":"okx","symbols":["BTC/USDT","ETH/USDT","SOL/USDT"],"timeframe":"1h","limit":200}'
 ```
@@ -519,6 +525,59 @@ private trading APIs and does not place orders.
 
 In the frontend, open `/markets` and use **Ingest Market Data** before expecting
 charts, snapshots, rankings, or alerts to be populated.
+
+## Backfill Three Years For Top 30 Coins
+
+The platform can build a major-coin universe from CoinGecko market-cap ranking,
+filter it to symbols listed on the configured exchange, and backfill stored
+OHLCV candles through public CCXT data. Stablecoins and wrapped assets are
+excluded by default. If CoinGecko is unavailable, the backend falls back to the
+configured `MARKET_TOP_SYMBOLS` list.
+
+Preview the current exchange-supported universe:
+
+```bash
+curl -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://localhost:8000/market/universe?exchange=okx&top_n=30"
+```
+
+Run a short smoke backfill first:
+
+```bash
+curl -X POST http://localhost:8000/market/backfill \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "exchange": "okx",
+    "use_top_market_cap": true,
+    "top_n": 30,
+    "timeframe": "1h",
+    "years": 3,
+    "batch_limit": 300,
+    "max_batches_per_symbol": 1
+  }'
+```
+
+Run the full three-year 1h backfill by omitting `max_batches_per_symbol`:
+
+```bash
+curl -X POST http://localhost:8000/market/backfill \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "exchange": "okx",
+    "use_top_market_cap": true,
+    "top_n": 30,
+    "timeframe": "1h",
+    "years": 3,
+    "batch_limit": 300
+  }'
+```
+
+Three years of 1h candles is roughly 26,000 rows per symbol and around 790,000
+rows for 30 symbols before duplicates. Run it during a quiet period on a small
+VPS. Existing rows are skipped by `exchange + symbol + timeframe + timestamp`,
+so repeated backfills are safe and only insert missing candles.
 
 ## Query Market Data
 
@@ -731,7 +790,7 @@ evaluation:
 ```env
 ENABLE_ALERT_SCHEDULER=true
 ALERT_EVALUATION_INTERVAL_SECONDS=300
-ALERT_DEFAULT_SYMBOLS=BTC/USDT,ETH/USDT,SOL/USDT
+ALERT_DEFAULT_SYMBOLS=BTC/USDT,ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,TRX/USDT,TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,HBAR/USDT,LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,ETC/USDT,ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,HYPE/USDT,PEPE/USDT
 ALERT_DEFAULT_TIMEFRAME=1h
 ```
 

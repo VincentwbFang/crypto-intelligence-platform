@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -9,12 +11,16 @@ from app.db.session import get_db
 from app.observability.metrics import track_feature_event
 from app.observability.tracing import trace_span
 from app.schemas.market import (
+    MarketBackfillRequest,
+    MarketBackfillResponse,
     MarketIngestRequest,
     MarketIngestResponse,
+    MarketUniverseResponse,
     MarketSnapshotResponse,
     OHLCVResponse,
 )
 from app.services.market_service import MarketService
+from app.services.market_universe_service import MarketUniverseService
 
 router = APIRouter(tags=["market"], dependencies=[Depends(require_auth_if_enabled)])
 
@@ -40,6 +46,61 @@ def ingest_market_data(
     return MarketIngestResponse(
         exchange=request.exchange,
         timeframe=request.timeframe,
+        results=results,
+    )
+
+
+@router.get("/universe", response_model=MarketUniverseResponse)
+def get_market_universe(
+    exchange: str = Query(default=settings.DEFAULT_EXCHANGE),
+    top_n: int = Query(default=settings.MARKET_TOP_N, ge=1, le=100),
+) -> MarketUniverseResponse:
+    try:
+        universe = MarketUniverseService(exchange_id=exchange).get_top_market_symbols(top_n=top_n)
+    except MarketDataError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return MarketUniverseResponse(**universe)
+
+
+@router.post("/backfill", response_model=MarketBackfillResponse)
+def backfill_market_data(
+    request: MarketBackfillRequest,
+    db: Session = Depends(get_db),
+) -> MarketBackfillResponse:
+    try:
+        with trace_span("market_backfill"):
+            market_client = CCXTMarketClient(request.exchange)
+            skipped: list[dict[str, str]] = []
+            symbols = request.symbols or []
+            if request.use_top_market_cap:
+                universe = MarketUniverseService(
+                    exchange_id=request.exchange,
+                    market_client=market_client,
+                ).get_top_market_symbols(top_n=request.top_n)
+                symbols = universe["symbols"]
+                skipped = universe["skipped"]
+            if not symbols:
+                raise HTTPException(status_code=400, detail="No symbols available for backfill.")
+
+            start_at = datetime.now(UTC) - timedelta(days=365 * request.years)
+            ingestor = OHLCVIngestor(db_session=db, market_client=market_client)
+            results = ingestor.backfill_many(
+                symbols=symbols,
+                timeframe=request.timeframe,
+                start_at=start_at,
+                batch_limit=request.batch_limit,
+                max_batches_per_symbol=request.max_batches_per_symbol,
+            )
+        track_feature_event("market_backfill")
+    except MarketDataError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return MarketBackfillResponse(
+        exchange=request.exchange,
+        timeframe=request.timeframe,
+        years=request.years,
+        symbols=symbols,
+        skipped=skipped,
         results=results,
     )
 

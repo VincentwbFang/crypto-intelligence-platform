@@ -18,6 +18,35 @@ class MarketIngestResponse(BaseModel):
     results: dict[str, int]
 
 
+class MarketBackfillRequest(BaseModel):
+    exchange: str = settings.DEFAULT_EXCHANGE
+    symbols: list[str] | None = None
+    use_top_market_cap: bool = True
+    top_n: int = Field(default=settings.MARKET_TOP_N, ge=1, le=100)
+    timeframe: str = settings.MARKET_BACKFILL_TIMEFRAME
+    years: int = Field(default=settings.MARKET_BACKFILL_YEARS, ge=1, le=10)
+    batch_limit: int = Field(default=settings.MARKET_BACKFILL_BATCH_LIMIT, ge=50, le=1000)
+    max_batches_per_symbol: int | None = Field(default=None, ge=1)
+
+
+class MarketBackfillResponse(BaseModel):
+    exchange: str
+    timeframe: str
+    years: int
+    symbols: list[str]
+    skipped: list[dict[str, str]] = Field(default_factory=list)
+    results: dict[str, dict]
+
+
+class MarketUniverseResponse(BaseModel):
+    exchange: str
+    top_n: int
+    quote: str
+    source: str
+    symbols: list[str]
+    skipped: list[dict[str, str]]
+
+
 class OHLCVCandle(BaseModel):
     exchange: str
     symbol: str

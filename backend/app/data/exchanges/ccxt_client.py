@@ -72,6 +72,7 @@ class CCXTMarketClient:
         symbol: str,
         timeframe: str,
         limit: int = 200,
+        since: datetime | None = None,
     ) -> list[dict[str, Any]]:
         if not self.exchange.has.get("fetchOHLCV"):
             raise UnsupportedOHLCVError(
@@ -85,7 +86,7 @@ class CCXTMarketClient:
             )
 
         try:
-            rows = self._fetch_ohlcv_with_retry(symbol, timeframe, limit)
+            rows = self._fetch_ohlcv_with_retry(symbol, timeframe, limit, since)
         except ccxt.BadSymbol as exc:
             raise SymbolNotFoundError(
                 f"Symbol {symbol} was not found on {self.exchange_id}"
@@ -113,8 +114,21 @@ class CCXTMarketClient:
         symbol: str,
         timeframe: str,
         limit: int,
+        since: datetime | None = None,
     ) -> list[list[float]]:
-        return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        since_ms = int(since.timestamp() * 1000) if since is not None else None
+        return self.exchange.fetch_ohlcv(
+            symbol,
+            timeframe=timeframe,
+            since=since_ms,
+            limit=limit,
+        )
+
+    def timeframe_to_milliseconds(self, timeframe: str) -> int:
+        try:
+            return int(self.exchange.parse_timeframe(timeframe) * 1000)
+        except Exception as exc:
+            raise MarketDataAPIError(f"Unsupported timeframe: {timeframe}") from exc
 
     def _normalize_ohlcv_row(
         self,

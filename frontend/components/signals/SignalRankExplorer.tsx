@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { rankSignals } from "@/lib/api/signals";
+import { TOP_30_MARKET_SYMBOLS_TEXT } from "@/lib/market-universe";
 import type { SignalResponse } from "@/lib/api/types";
 
 export function SignalRankExplorer() {
-  const [symbols, setSymbols] = useState("BTC/USDT,ETH/USDT,SOL/USDT");
+  const [symbols, setSymbols] = useState(TOP_30_MARKET_SYMBOLS_TEXT);
   const [timeframe, setTimeframe] = useState("1h");
   const [signals, setSignals] = useState<SignalResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);

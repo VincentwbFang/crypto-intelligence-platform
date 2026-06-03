@@ -14,14 +14,13 @@ import { Button } from "@/components/ui/button";
 import { listAlerts } from "@/lib/api/alerts";
 import { getMarketSnapshot } from "@/lib/api/market";
 import { rankSignals } from "@/lib/api/signals";
+import { DASHBOARD_SNAPSHOT_SYMBOLS, TOP_30_MARKET_SYMBOLS } from "@/lib/market-universe";
 import type { AlertResponse, MarketSnapshot, SignalResponse } from "@/lib/api/types";
-
-const defaultSymbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 export default async function DashboardPage() {
   const [snapshotsResult, rankingsResult, alertsResult] = await Promise.allSettled([
-    Promise.all(defaultSymbols.map((symbol) => getMarketSnapshot(symbol, "1h"))),
-    rankSignals(defaultSymbols, "1h", 200),
+    Promise.all(DASHBOARD_SNAPSHOT_SYMBOLS.map((symbol) => getMarketSnapshot(symbol, "1h"))),
+    rankSignals(TOP_30_MARKET_SYMBOLS, "1h", 200),
     listAlerts({ limit: 10 })
   ]);
 
@@ -58,7 +57,7 @@ export default async function DashboardPage() {
         <ErrorState message="One or more dashboard sections could not load. Existing sections remain visible when available." />
       ) : null}
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Tracked Symbols" value={defaultSymbols.length} detail="BTC, ETH, SOL" />
+        <StatCard label="Tracked Symbols" value={TOP_30_MARKET_SYMBOLS.length} detail="Top 30 major USDT pairs" />
         <StatCard label="Signals Loaded" value={signals.length} detail="Ranked by deterministic score" />
         <StatCard label="Recent Alerts" value={alerts.length} detail="Newest stored alerts" />
       </div>

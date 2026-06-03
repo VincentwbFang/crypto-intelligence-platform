@@ -42,6 +42,48 @@ export type MarketIngestResponse = {
   results: Record<string, number>;
 };
 
+export type MarketUniverseResponse = {
+  exchange: string;
+  top_n: number;
+  quote: string;
+  source: string;
+  symbols: string[];
+  skipped: Array<Record<string, string>>;
+};
+
+export type MarketBackfillRequest = {
+  exchange: string;
+  symbols?: string[] | null;
+  use_top_market_cap: boolean;
+  top_n: number;
+  timeframe: string;
+  years: number;
+  batch_limit: number;
+  max_batches_per_symbol?: number | null;
+};
+
+export type MarketBackfillSymbolResult = {
+  symbol: string;
+  timeframe: string;
+  start_at?: string;
+  end_at?: string;
+  fetched: number;
+  inserted: number;
+  duplicates: number;
+  batches: number;
+  last_timestamp?: string | null;
+  error?: string;
+};
+
+export type MarketBackfillResponse = {
+  exchange: string;
+  timeframe: string;
+  years: number;
+  symbols: string[];
+  skipped: Array<Record<string, string>>;
+  results: Record<string, MarketBackfillSymbolResult>;
+};
+
 export type SignalScores = {
   trend_score: number;
   momentum_score: number;

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { evaluateAlerts } from "@/lib/api/alerts";
+import { TOP_30_MARKET_SYMBOLS_TEXT } from "@/lib/market-universe";
 import type { AlertEvaluateResponse } from "@/lib/api/types";
 
 type AlertEvaluationFormProps = {
@@ -14,7 +15,7 @@ type AlertEvaluationFormProps = {
 };
 
 export function AlertEvaluationForm({ onEvaluated }: AlertEvaluationFormProps) {
-  const [symbols, setSymbols] = useState("BTC/USDT,ETH/USDT,SOL/USDT");
+  const [symbols, setSymbols] = useState(TOP_30_MARKET_SYMBOLS_TEXT);
   const [timeframe, setTimeframe] = useState("1h");
   const [limit, setLimit] = useState(200);
   const [isLoading, setIsLoading] = useState(false);

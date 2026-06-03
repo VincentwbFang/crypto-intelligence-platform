@@ -1,0 +1,35 @@
+export const TOP_30_MARKET_SYMBOLS = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "BNB/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "DOGE/USDT",
+  "ADA/USDT",
+  "TRX/USDT",
+  "TON/USDT",
+  "LINK/USDT",
+  "AVAX/USDT",
+  "SUI/USDT",
+  "XLM/USDT",
+  "BCH/USDT",
+  "HBAR/USDT",
+  "LTC/USDT",
+  "DOT/USDT",
+  "UNI/USDT",
+  "APT/USDT",
+  "NEAR/USDT",
+  "ICP/USDT",
+  "ETC/USDT",
+  "ARB/USDT",
+  "OP/USDT",
+  "FIL/USDT",
+  "ATOM/USDT",
+  "INJ/USDT",
+  "SEI/USDT",
+  "HYPE/USDT",
+  "PEPE/USDT"
+];
+
+export const TOP_30_MARKET_SYMBOLS_TEXT = TOP_30_MARKET_SYMBOLS.join(",");
+export const DASHBOARD_SNAPSHOT_SYMBOLS = TOP_30_MARKET_SYMBOLS.slice(0, 5);

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -40,6 +40,46 @@ class FakeMarketClient:
         return self.records[:limit]
 
 
+class FakeBackfillMarketClient:
+    def __init__(self) -> None:
+        self.exchange_id = "binance"
+        self.calls: list[datetime | None] = []
+        self.start = datetime(2026, 5, 27, 12, tzinfo=UTC)
+
+    def fetch_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str,
+        limit: int = 200,
+        since: datetime | None = None,
+    ) -> list[dict]:
+        self.calls.append(since)
+        if len(self.calls) == 1:
+            offsets = [0, 1]
+        elif len(self.calls) == 2:
+            offsets = [1, 2]
+        else:
+            return []
+        return [
+            {
+                "exchange": self.exchange_id,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "timestamp": self.start + timedelta(hours=offset),
+                "open": 68000.0 + offset,
+                "high": 68100.0 + offset,
+                "low": 67900.0 + offset,
+                "close": 68050.0 + offset,
+                "volume": 1000.0 + offset,
+            }
+            for offset in offsets
+        ][:limit]
+
+    def timeframe_to_milliseconds(self, timeframe: str) -> int:
+        assert timeframe == "1h"
+        return 60 * 60 * 1000
+
+
 def make_session() -> Session:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -77,3 +117,54 @@ def test_ingest_symbol_ignores_duplicates() -> None:
     assert second_count == 0
     assert len(rows) == 2
 
+
+def test_backfill_symbol_paginates_and_ignores_duplicates() -> None:
+    db = make_session()
+    market_client = FakeBackfillMarketClient()
+    ingestor = OHLCVIngestor(db_session=db, market_client=market_client)
+
+    result = ingestor.backfill_symbol(
+        symbol="BTC/USDT",
+        timeframe="1h",
+        start_at=market_client.start,
+        end_at=market_client.start + timedelta(hours=4),
+        batch_limit=2,
+    )
+
+    rows = db.scalars(select(OHLCV).order_by(OHLCV.timestamp)).all()
+    assert result["fetched"] == 4
+    assert result["inserted"] == 3
+    assert result["duplicates"] == 1
+    assert result["batches"] == 2
+    assert len(rows) == 3
+    assert rows[-1].timestamp.replace(tzinfo=UTC) == market_client.start + timedelta(hours=2)
+
+
+def test_backfill_many_returns_error_per_failed_symbol() -> None:
+    class PartiallyFailingClient(FakeBackfillMarketClient):
+        def fetch_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            limit: int = 200,
+            since: datetime | None = None,
+        ) -> list[dict]:
+            if symbol == "BAD/USDT":
+                raise RuntimeError("symbol unavailable")
+            return super().fetch_ohlcv(symbol, timeframe, limit, since)
+
+    db = make_session()
+    market_client = PartiallyFailingClient()
+    ingestor = OHLCVIngestor(db_session=db, market_client=market_client)
+
+    result = ingestor.backfill_many(
+        symbols=["BTC/USDT", "BAD/USDT"],
+        timeframe="1h",
+        start_at=market_client.start,
+        end_at=market_client.start + timedelta(hours=2),
+        batch_limit=2,
+        max_batches_per_symbol=1,
+    )
+
+    assert result["BTC/USDT"]["inserted"] == 2
+    assert result["BAD/USDT"]["error"] == "symbol unavailable"

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { Select } from "@/components/ui/select";
 import { formatSymbolForRoute } from "@/lib/format";
+import { TOP_30_MARKET_SYMBOLS } from "@/lib/market-universe";
 
 type TokenSelectorProps = {
   value: string;
@@ -13,7 +14,7 @@ type TokenSelectorProps = {
 
 export function TokenSelector({
   value,
-  symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+  symbols = TOP_30_MARKET_SYMBOLS,
   basePath = "tokens"
 }: TokenSelectorProps) {
   const router = useRouter();

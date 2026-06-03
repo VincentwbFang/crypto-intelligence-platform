@@ -3,6 +3,15 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+TOP_30_USDT_SYMBOLS = (
+    "BTC/USDT,ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,"
+    "TRX/USDT,TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,"
+    "HBAR/USDT,LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,"
+    "ETC/USDT,ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,"
+    "HYPE/USDT,PEPE/USDT"
+)
+
+
 class Settings(BaseSettings):
     APP_NAME: str = "crypto-intelligence-platform"
     APP_VERSION: str = "0.1.0"
@@ -16,15 +25,24 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     LOG_LEVEL: str = "INFO"
     DEFAULT_EXCHANGE: str = "okx"
-    DEFAULT_SYMBOLS: str = "BTC/USDT,ETH/USDT,SOL/USDT"
+    DEFAULT_SYMBOLS: str = TOP_30_USDT_SYMBOLS
     DEFAULT_TIMEFRAME: str = "1h"
     MARKET_DATA_LIMIT: int = 200
+    MARKET_TOP_N: int = 30
+    MARKET_BACKFILL_YEARS: int = 3
+    MARKET_BACKFILL_TIMEFRAME: str = "1h"
+    MARKET_BACKFILL_BATCH_LIMIT: int = 300
+    MARKET_BACKFILL_QUOTE: str = "USDT"
+    MARKET_TOP_SYMBOLS: str = TOP_30_USDT_SYMBOLS
+    MARKET_EXCLUDE_SYMBOLS: str = "USDT,USDC,STETH,WBTC,DAI,USDE,BUSD,FDUSD"
+    COINGECKO_MARKETS_URL: str = "https://api.coingecko.com/api/v3/coins/markets"
     RELATIVE_STRENGTH_BASE_SYMBOL: str = "BTC/USDT"
     RELATIVE_STRENGTH_SYMBOLS: str = (
-        "ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,AVAX/USDT,"
-        "LINK/USDT,TON/USDT,DOT/USDT,TRX/USDT,LTC/USDT,BCH/USDT,UNI/USDT,"
-        "APT/USDT,ARB/USDT,OP/USDT,SUI/USDT,NEAR/USDT,ATOM/USDT,FIL/USDT,"
-        "INJ/USDT,SEI/USDT,HYPE/USDT"
+        "ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,TRX/USDT,"
+        "TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,HBAR/USDT,"
+        "LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,ETC/USDT,"
+        "ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,HYPE/USDT,"
+        "PEPE/USDT"
     )
     RELATIVE_STRENGTH_TIMEFRAME: str = "1h"
     RELATIVE_STRENGTH_LOOKBACK_LIMIT: int = 750
@@ -73,7 +91,7 @@ class Settings(BaseSettings):
     ENABLE_ALERT_ENGINE: bool = True
     ENABLE_ALERT_SCHEDULER: bool = False
     ALERT_EVALUATION_INTERVAL_SECONDS: int = 300
-    ALERT_DEFAULT_SYMBOLS: str = "BTC/USDT,ETH/USDT,SOL/USDT"
+    ALERT_DEFAULT_SYMBOLS: str = TOP_30_USDT_SYMBOLS
     ALERT_DEFAULT_TIMEFRAME: str = "1h"
     ALERT_SIGNAL_SCORE_THRESHOLD: float = 70.0
     ALERT_HIGH_RISK_THRESHOLD: float = 75.0
@@ -170,6 +188,22 @@ class Settings(BaseSettings):
             for symbol in self.RELATIVE_STRENGTH_SYMBOLS.split(",")
             if symbol.strip()
         ]
+
+    @property
+    def market_top_symbols_list(self) -> list[str]:
+        return [
+            symbol.strip()
+            for symbol in self.MARKET_TOP_SYMBOLS.split(",")
+            if symbol.strip()
+        ]
+
+    @property
+    def market_exclude_symbols_set(self) -> set[str]:
+        return {
+            symbol.strip().upper()
+            for symbol in self.MARKET_EXCLUDE_SYMBOLS.split(",")
+            if symbol.strip()
+        }
 
     @property
     def news_rss_feed_urls_list(self) -> list[str]:

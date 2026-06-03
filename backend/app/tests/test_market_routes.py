@@ -152,3 +152,107 @@ def test_post_market_ingest_uses_mocked_market_client(
         "results": {"BTC/USDT": 1, "ETH/USDT": 1},
     }
 
+
+def test_get_market_universe_uses_mocked_universe_service(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMarketUniverseService:
+        def __init__(self, exchange_id: str, market_client: object | None = None) -> None:
+            self.exchange_id = exchange_id
+
+        def get_top_market_symbols(self, top_n: int) -> dict:
+            return {
+                "exchange": self.exchange_id,
+                "top_n": top_n,
+                "quote": "USDT",
+                "source": "test",
+                "symbols": ["BTC/USDT", "ETH/USDT"],
+                "skipped": [{"symbol": "USDT", "reason": "excluded"}],
+            }
+
+    monkeypatch.setattr(routes_market, "MarketUniverseService", FakeMarketUniverseService)
+
+    response = client.get("/market/universe", params={"exchange": "okx", "top_n": 2})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["exchange"] == "okx"
+    assert payload["top_n"] == 2
+    assert payload["symbols"] == ["BTC/USDT", "ETH/USDT"]
+
+
+def test_post_market_backfill_uses_mocked_market_client_and_universe(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeCCXTMarketClient:
+        def __init__(self, exchange_id: str) -> None:
+            self.exchange_id = exchange_id
+
+        def load_markets(self) -> dict[str, dict]:
+            return {"BTC/USDT": {}, "ETH/USDT": {}}
+
+        def fetch_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            limit: int = 200,
+            since: datetime | None = None,
+        ) -> list[dict]:
+            timestamp = since or datetime(2026, 5, 27, 12, tzinfo=UTC)
+            return [
+                {
+                    "exchange": self.exchange_id,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "timestamp": timestamp,
+                    "open": 68000.0,
+                    "high": 68100.0,
+                    "low": 67900.0,
+                    "close": 68050.0,
+                    "volume": 1000.0,
+                }
+            ][:limit]
+
+        def timeframe_to_milliseconds(self, timeframe: str) -> int:
+            assert timeframe == "1h"
+            return 60 * 60 * 1000
+
+    class FakeMarketUniverseService:
+        def __init__(self, exchange_id: str, market_client: object | None = None) -> None:
+            self.exchange_id = exchange_id
+
+        def get_top_market_symbols(self, top_n: int) -> dict:
+            assert top_n == 2
+            return {
+                "exchange": self.exchange_id,
+                "top_n": top_n,
+                "quote": "USDT",
+                "source": "test",
+                "symbols": ["BTC/USDT", "ETH/USDT"],
+                "skipped": [],
+            }
+
+    monkeypatch.setattr(routes_market, "CCXTMarketClient", FakeCCXTMarketClient)
+    monkeypatch.setattr(routes_market, "MarketUniverseService", FakeMarketUniverseService)
+
+    response = client.post(
+        "/market/backfill",
+        json={
+            "exchange": "okx",
+            "use_top_market_cap": True,
+            "top_n": 2,
+            "timeframe": "1h",
+            "years": 3,
+            "batch_limit": 300,
+            "max_batches_per_symbol": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["exchange"] == "okx"
+    assert payload["symbols"] == ["BTC/USDT", "ETH/USDT"]
+    assert payload["results"]["BTC/USDT"]["inserted"] == 1
+    assert payload["results"]["ETH/USDT"]["inserted"] == 1

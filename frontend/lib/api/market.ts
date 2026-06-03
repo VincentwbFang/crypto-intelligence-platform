@@ -1,8 +1,11 @@
 import { apiFetch } from "@/lib/api/client";
 import type {
+  MarketBackfillRequest,
+  MarketBackfillResponse,
   MarketIngestRequest,
   MarketIngestResponse,
   MarketSnapshot,
+  MarketUniverseResponse,
   OHLCVResponse
 } from "@/lib/api/types";
 
@@ -20,6 +23,19 @@ export function getOHLCV(symbol: string, timeframe = "1h", limit = 200) {
 
 export function ingestMarketData(request: MarketIngestRequest) {
   return apiFetch<MarketIngestResponse>("/market/ingest", {
+    method: "POST",
+    body: request
+  });
+}
+
+export function getMarketUniverse(exchange = "okx", topN = 30) {
+  return apiFetch<MarketUniverseResponse>("/market/universe", {
+    query: { exchange, top_n: topN }
+  });
+}
+
+export function backfillMarketData(request: MarketBackfillRequest) {
+  return apiFetch<MarketBackfillResponse>("/market/backfill", {
     method: "POST",
     body: request
   });
