@@ -37,6 +37,7 @@ from app.observability.tracing import setup_tracing
 from app.security.headers import SecurityHeadersMiddleware
 from app.security.rate_limit import RateLimitMiddleware
 from app.services.signal_service import SignalService
+from app.tasks.market_data_tasks import MarketDataScheduler
 from app.tasks.calculate_relative_strength import RelativeStrengthScheduler
 from app.tasks.news_tasks import NewsScheduler
 
@@ -56,6 +57,10 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         relative_strength_scheduler = RelativeStrengthScheduler(settings)
         relative_strength_scheduler.start()
         application.state.relative_strength_scheduler = relative_strength_scheduler
+    if settings.ENABLE_MARKET_DATA_SCHEDULER:
+        market_data_scheduler = MarketDataScheduler(settings)
+        market_data_scheduler.start()
+        application.state.market_data_scheduler = market_data_scheduler
     if settings.ENABLE_NEWS_SCHEDULER:
         news_scheduler = NewsScheduler(settings)
         news_scheduler.start()
@@ -73,6 +78,9 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         )
         if relative_strength_scheduler is not None:
             relative_strength_scheduler.shutdown()
+        market_data_scheduler = getattr(application.state, "market_data_scheduler", None)
+        if market_data_scheduler is not None:
+            market_data_scheduler.shutdown()
         news_scheduler = getattr(application.state, "news_scheduler", None)
         if news_scheduler is not None:
             news_scheduler.shutdown()

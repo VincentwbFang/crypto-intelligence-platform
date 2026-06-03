@@ -14,6 +14,7 @@ def disable_route_auth_for_legacy_api_tests(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(settings, "ENABLE_AUTH", False)
     monkeypatch.setattr(settings, "JWT_SECRET_KEY", "phase-eight-test-secret")
     monkeypatch.setattr(settings, "ENABLE_RATE_LIMITING", False)
+    monkeypatch.setattr(settings, "ENABLE_MARKET_DATA_SCHEDULER", False)
     monkeypatch.setattr(settings, "ENABLE_RELATIVE_STRENGTH_SCHEDULER", False)
     monkeypatch.setattr(settings, "ENABLE_NEWS_SCHEDULER", False)
     monkeypatch.setattr(settings, "NEWS_LLM_ENABLED", False)

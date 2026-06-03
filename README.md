@@ -76,6 +76,13 @@ MARKET_BACKFILL_YEARS=3
 MARKET_BACKFILL_TIMEFRAME=1h
 MARKET_BACKFILL_BATCH_LIMIT=300
 MARKET_BACKFILL_QUOTE=USDT
+ENABLE_MARKET_DATA_SCHEDULER=true
+MARKET_DATA_UPDATE_INTERVAL_SECONDS=3600
+MARKET_DATA_UPDATE_LIMIT=300
+MARKET_DATA_UPDATE_TIMEFRAME=1h
+MARKET_DATA_UPDATE_TOP_N=30
+MARKET_DATA_UPDATE_USE_TOP_MARKET_CAP=true
+MARKET_DATA_UPDATE_ON_STARTUP=true
 ENABLE_ALERT_ENGINE=true
 ENABLE_ALERT_SCHEDULER=false
 ALERT_EVALUATION_INTERVAL_SECONDS=300
@@ -578,6 +585,28 @@ Three years of 1h candles is roughly 26,000 rows per symbol and around 790,000
 rows for 30 symbols before duplicates. Run it during a quiet period on a small
 VPS. Existing rows are skipped by `exchange + symbol + timeframe + timestamp`,
 so repeated backfills are safe and only insert missing candles.
+
+## Automatic Hourly Market Updates
+
+The backend starts an APScheduler job when `ENABLE_MARKET_DATA_SCHEDULER=true`.
+By default it runs every hour, resolves the current top 30 USDT pairs, and
+fetches the latest 300 one-hour candles per symbol:
+
+```env
+ENABLE_MARKET_DATA_SCHEDULER=true
+MARKET_DATA_UPDATE_INTERVAL_SECONDS=3600
+MARKET_DATA_UPDATE_LIMIT=300
+MARKET_DATA_UPDATE_TIMEFRAME=1h
+MARKET_DATA_UPDATE_TOP_N=30
+MARKET_DATA_UPDATE_USE_TOP_MARKET_CAP=true
+MARKET_DATA_UPDATE_ON_STARTUP=true
+```
+
+The job uses public CCXT market data only. It does not require exchange API
+keys, does not connect to private trading APIs, and does not place orders. Each
+symbol is handled independently, so an unavailable pair is logged and skipped
+without stopping the rest of the update. Duplicate candles are ignored through
+the OHLCV unique key.
 
 ## Query Market Data
 
