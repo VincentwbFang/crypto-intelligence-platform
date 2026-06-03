@@ -83,6 +83,8 @@ MARKET_DATA_UPDATE_TIMEFRAME=1h
 MARKET_DATA_UPDATE_TOP_N=30
 MARKET_DATA_UPDATE_USE_TOP_MARKET_CAP=true
 MARKET_DATA_UPDATE_ON_STARTUP=true
+MARKET_DATA_UPDATE_ROLLING_DAYS=35
+MARKET_DATA_UPDATE_MAX_BATCHES_PER_SYMBOL=8
 ENABLE_ALERT_ENGINE=true
 ENABLE_ALERT_SCHEDULER=false
 ALERT_EVALUATION_INTERVAL_SECONDS=300
@@ -98,7 +100,7 @@ ENABLE_EMAIL_NOTIFICATIONS=false
 RELATIVE_STRENGTH_BASE_SYMBOL=BTC/USDT
 RELATIVE_STRENGTH_SYMBOLS=ETH/USDT,BNB/USDT,SOL/USDT,XRP/USDT,DOGE/USDT,ADA/USDT,TRX/USDT,TON/USDT,LINK/USDT,AVAX/USDT,SUI/USDT,XLM/USDT,BCH/USDT,HBAR/USDT,LTC/USDT,DOT/USDT,UNI/USDT,APT/USDT,NEAR/USDT,ICP/USDT,ETC/USDT,ARB/USDT,OP/USDT,FIL/USDT,ATOM/USDT,INJ/USDT,SEI/USDT,HYPE/USDT,PEPE/USDT
 RELATIVE_STRENGTH_TIMEFRAME=1h
-RELATIVE_STRENGTH_LOOKBACK_LIMIT=750
+RELATIVE_STRENGTH_LOOKBACK_LIMIT=900
 ENABLE_RELATIVE_STRENGTH_SCHEDULER=true
 RELATIVE_STRENGTH_INTERVAL_SECONDS=900
 ENABLE_AI_RELATIVE_STRENGTH_ALERT_EXPLANATION=false
@@ -590,7 +592,7 @@ so repeated backfills are safe and only insert missing candles.
 
 The backend starts an APScheduler job when `ENABLE_MARKET_DATA_SCHEDULER=true`.
 By default it runs every hour, resolves the current top 30 USDT pairs, and
-fetches the latest 300 one-hour candles per symbol:
+keeps a rolling 35-day one-hour candle window fresh for each symbol:
 
 ```env
 ENABLE_MARKET_DATA_SCHEDULER=true
@@ -600,13 +602,17 @@ MARKET_DATA_UPDATE_TIMEFRAME=1h
 MARKET_DATA_UPDATE_TOP_N=30
 MARKET_DATA_UPDATE_USE_TOP_MARKET_CAP=true
 MARKET_DATA_UPDATE_ON_STARTUP=true
+MARKET_DATA_UPDATE_ROLLING_DAYS=35
+MARKET_DATA_UPDATE_MAX_BATCHES_PER_SYMBOL=8
 ```
 
 The job uses public CCXT market data only. It does not require exchange API
 keys, does not connect to private trading APIs, and does not place orders. Each
 symbol is handled independently, so an unavailable pair is logged and skipped
 without stopping the rest of the update. Duplicate candles are ignored through
-the OHLCV unique key.
+the OHLCV unique key. The 35-day rolling window is intentionally longer than the
+30-day BRSI lookback, giving the BTC Relative Strength Monitor enough
+production-quality data to calculate 24h, 7d, 30d, trend, and volume components.
 
 ## Query Market Data
 

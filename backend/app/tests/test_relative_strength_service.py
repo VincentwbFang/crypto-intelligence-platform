@@ -37,6 +37,16 @@ def test_brsi_score_generation() -> None:
         }
     )
     assert score == 66
+    partial_score = calculate_brsi_score(
+        {
+            "excess_return_24h": 80,
+            "excess_return_7d": 70,
+            "excess_return_30d": None,
+            "relative_trend_score": 50,
+            "volume_score": None,
+        }
+    )
+    assert partial_score == 71.42857142857143
     assert calculate_brsi_score({"excess_return_24h": None}) is None
 
 

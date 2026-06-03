@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -24,15 +24,17 @@ class FakeCCXTMarketClient:
         symbol: str,
         timeframe: str,
         limit: int = 200,
+        since: datetime | None = None,
     ) -> list[dict]:
         if symbol == "BAD/USDT":
             raise RuntimeError("source unavailable")
+        timestamp = (since or datetime(2026, 6, 3, 12, tzinfo=UTC)) + timedelta(hours=1)
         return [
             {
                 "exchange": self.exchange_id,
                 "symbol": symbol,
                 "timeframe": timeframe,
-                "timestamp": datetime(2026, 6, 3, 12, tzinfo=UTC),
+                "timestamp": timestamp,
                 "open": 100.0,
                 "high": 110.0,
                 "low": 90.0,
@@ -94,10 +96,14 @@ def test_update_market_data_once_ingests_symbols_and_isolates_failures(
     monkeypatch.setattr(market_data_tasks.settings, "MARKET_DATA_UPDATE_LIMIT", 200)
     monkeypatch.setattr(market_data_tasks.settings, "MARKET_DATA_UPDATE_USE_TOP_MARKET_CAP", True)
     monkeypatch.setattr(market_data_tasks.settings, "MARKET_DATA_UPDATE_TOP_N", 3)
+    monkeypatch.setattr(market_data_tasks.settings, "MARKET_DATA_UPDATE_ROLLING_DAYS", 35)
+    monkeypatch.setattr(market_data_tasks.settings, "MARKET_DATA_UPDATE_MAX_BATCHES_PER_SYMBOL", 1)
 
     result = update_market_data_once(db_session)
 
     rows = db_session.scalars(select(OHLCV).order_by(OHLCV.symbol)).all()
     assert [row.symbol for row in rows] == ["BTC/USDT", "ETH/USDT"]
     assert result["inserted"] == {"BTC/USDT": 1, "ETH/USDT": 1}
+    assert result["details"]["BTC/USDT"]["batches"] == 1
+    assert result["rolling_days"] == 35
     assert result["failures"]["BAD/USDT"] == "Unexpected market data update failure."

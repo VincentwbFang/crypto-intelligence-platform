@@ -131,9 +131,6 @@ class OHLCVIngestor:
                 last_timestamp = latest_timestamp
                 cursor = latest_timestamp + timedelta(milliseconds=timeframe_ms)
 
-                if len(records) < batch_limit:
-                    break
-
             return {
                 "symbol": symbol,
                 "timeframe": timeframe,

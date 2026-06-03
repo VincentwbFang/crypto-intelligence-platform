@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -33,14 +33,27 @@ def update_market_data_once(
         ingestor = OHLCVIngestor(db_session=db, market_client=market_client)
 
         results: dict[str, int] = {}
+        details: dict[str, dict[str, Any]] = {}
         failures: dict[str, str] = {}
         for symbol in update_symbols:
             try:
-                results[symbol] = ingestor.ingest_symbol(
-                    symbol=symbol,
-                    timeframe=settings.MARKET_DATA_UPDATE_TIMEFRAME,
-                    limit=settings.MARKET_DATA_UPDATE_LIMIT,
-                )
+                if settings.MARKET_DATA_UPDATE_ROLLING_DAYS > 0:
+                    backfill_result = ingestor.backfill_symbol(
+                        symbol=symbol,
+                        timeframe=settings.MARKET_DATA_UPDATE_TIMEFRAME,
+                        start_at=datetime.now(UTC)
+                        - timedelta(days=settings.MARKET_DATA_UPDATE_ROLLING_DAYS),
+                        batch_limit=settings.MARKET_DATA_UPDATE_LIMIT,
+                        max_batches=settings.MARKET_DATA_UPDATE_MAX_BATCHES_PER_SYMBOL,
+                    )
+                    results[symbol] = int(backfill_result["inserted"])
+                    details[symbol] = backfill_result
+                else:
+                    results[symbol] = ingestor.ingest_symbol(
+                        symbol=symbol,
+                        timeframe=settings.MARKET_DATA_UPDATE_TIMEFRAME,
+                        limit=settings.MARKET_DATA_UPDATE_LIMIT,
+                    )
             except MarketDataError as exc:
                 failures[symbol] = str(exc)
                 logger.warning("Skipped scheduled market data update for %s: %s", symbol, exc)
@@ -55,8 +68,10 @@ def update_market_data_once(
             "limit": settings.MARKET_DATA_UPDATE_LIMIT,
             "symbols": update_symbols,
             "inserted": results,
+            "details": details,
             "skipped": skipped,
             "failures": failures,
+            "rolling_days": settings.MARKET_DATA_UPDATE_ROLLING_DAYS,
             "updated_at": datetime.now(UTC).isoformat(),
         }
     finally:

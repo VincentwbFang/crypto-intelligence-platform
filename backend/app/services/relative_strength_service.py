@@ -56,16 +56,26 @@ def percentile_ranks(values: dict[str, float | None]) -> dict[str, float | None]
 
 
 def calculate_brsi_score(components: dict[str, float | None]) -> float | None:
-    required_weights = {
+    weights = {
         "excess_return_24h": 0.30,
         "excess_return_7d": 0.30,
         "excess_return_30d": 0.20,
         "relative_trend_score": 0.10,
         "volume_score": 0.10,
     }
-    if any(components.get(key) is None for key in required_weights):
+    available = {
+        key: float(value)
+        for key, value in components.items()
+        if key in weights and value is not None
+    }
+    core_available = any(
+        components.get(key) is not None
+        for key in ("excess_return_24h", "excess_return_7d")
+    )
+    available_weight = sum(weights[key] for key in available)
+    if not core_available or available_weight < 0.50:
         return None
-    score = sum(float(components[key]) * weight for key, weight in required_weights.items())
+    score = sum(available[key] * weights[key] for key in available) / available_weight
     return max(0.0, min(100.0, score))
 
 
@@ -329,10 +339,17 @@ def _calculate_relative_trend_score(
 
 
 def _calculate_volume_score(rows: list[dict[str, Any]]) -> float | None:
-    if len(rows) < LOOKBACK_30D:
+    if len(rows) <= LOOKBACK_24H:
+        return None
+    available_lookback = min(len(rows), LOOKBACK_30D)
+    if available_lookback < LOOKBACK_7D:
         return None
     current_24h_volume = sum(_safe_float(row.get("volume")) or 0 for row in rows[-LOOKBACK_24H:])
-    average_daily_volume = sum(_safe_float(row.get("volume")) or 0 for row in rows[-LOOKBACK_30D:]) / 30
+    available_days = available_lookback / 24
+    average_daily_volume = (
+        sum(_safe_float(row.get("volume")) or 0 for row in rows[-available_lookback:])
+        / available_days
+    )
     if average_daily_volume <= 0:
         return None
     return (current_24h_volume / average_daily_volume) * 100
